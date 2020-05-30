@@ -21,6 +21,9 @@ type RotaryEncoder struct {
 }
 
 func NewRotaryEncoder(aPin gpio.PinIO, bPin gpio.PinIO) *RotaryEncoder {
+	aPin.In(gpio.PullUp, gpio.BothEdges)
+	bPin.In(gpio.PullUp, gpio.BothEdges)
+
 	return &RotaryEncoder{
 		aPin: aPin,
 		bPin: bPin,
@@ -31,13 +34,14 @@ func (t *RotaryEncoder) Read() Action {
 	c := make(chan Action, 1)
 	defer close(c)
 
-	t.aPin.In(gpio.PullUp, gpio.BothEdges)
-	t.bPin.In(gpio.PullUp, gpio.BothEdges)
-
 	mu := sync.Mutex{}
+	stop := false
 
 	go func() {
 		for {
+			if stop {
+				return
+			}
 			if t.aPin.WaitForEdge(-1) == false {
 				return
 			}
@@ -46,8 +50,10 @@ func (t *RotaryEncoder) Read() Action {
 			a := t.handleEdge()
 
 			if a == cw || a == ccw {
-				t.bPin.Halt()
-				c <- a
+				if !stop {
+					c <- a
+				}
+				stop = true
 				mu.Unlock()
 				return
 			}
@@ -58,6 +64,9 @@ func (t *RotaryEncoder) Read() Action {
 
 	go func() {
 		for {
+			if stop {
+				return
+			}
 			if t.bPin.WaitForEdge(-1) == false {
 				return
 			}
@@ -66,8 +75,10 @@ func (t *RotaryEncoder) Read() Action {
 			a := t.handleEdge()
 
 			if a == cw || a == ccw {
-				t.aPin.Halt()
-				c <- a
+				if !stop {
+					c <- a
+				}
+				stop = true
 				mu.Unlock()
 				return
 			}

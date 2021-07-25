@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/sirupsen/logrus"
-	"github.com/toxygene/periphio-gpio-rotary-encoder/device"
+	"github.com/toxygene/periphio-gpio-rotary-encoder/v2/device"
 	"golang.org/x/sync/errgroup"
 	"os"
 	"os/signal"

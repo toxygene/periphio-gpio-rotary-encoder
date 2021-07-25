@@ -1,4 +1,4 @@
-module github.com/toxygene/periphio-gpio-rotary-encoder
+module github.com/toxygene/periphio-gpio-rotary-encoder/v2
 
 go 1.12
 

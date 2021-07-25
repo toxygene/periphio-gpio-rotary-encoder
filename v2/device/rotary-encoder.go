@@ -13,11 +13,11 @@ import (
 type Action string
 
 const (
-	none    Action = "none"
-	cw      Action = "clockwise"
-	ccw     Action = "counterClockwise"
-	press   Action = "press"
-	release Action = "release"
+	None    Action = "none"
+	CW      Action = "clockwise"
+	CCW     Action = "counterClockwise"
+	Press   Action = "press"
+	Release Action = "release"
 )
 
 type RotaryEncoder struct {
@@ -71,7 +71,7 @@ func (t *RotaryEncoder) Run(ctx context.Context, actions chan<- Action) error {
 				mu.Unlock()
 
 				logger.WithField("action", a).Info("action calculated for pin a edge")
-				if a == cw || a == ccw {
+				if a == CW || a == CCW {
 					actions <- a
 				}
 			}
@@ -105,7 +105,7 @@ func (t *RotaryEncoder) Run(ctx context.Context, actions chan<- Action) error {
 				mu.Unlock()
 
 				logger.WithField("action", a).Info("action calculated for pin b edge")
-				if a == cw || a == ccw {
+				if a == CW || a == CCW {
 					actions <- a
 				}
 			}
@@ -138,11 +138,11 @@ func (t *RotaryEncoder) Run(ctx context.Context, actions chan<- Action) error {
 				if t.buttonPin.Read() == gpio.High {
 					logger.Info("read button state high")
 
-					actions <- release
+					actions <- Release
 				} else {
 					logger.Info("read button state low")
 
-					actions <- press
+					actions <- Press
 				}
 			}
 		}
@@ -163,22 +163,22 @@ func (t *RotaryEncoder) handleEdge() Action {
 	encoderValue := t.readCurrentEncoderValue()
 
 	if encoderValue == (t.previousEncoderState & 3) {
-		return none
+		return None
 	}
 
 	encoderState := (t.previousEncoderState << 2) | encoderValue
 
 	if encoderState == 0x1e || encoderState == 0xe1 || encoderState == 0x78 || encoderState == 0x87 {
 		t.previousEncoderState = 0
-		return cw
+		return CW
 	} else if encoderState == 0xb4 || encoderState == 0x4b || encoderState == 0x2d || encoderState == 0xd2 {
 		t.previousEncoderState = 0
-		return ccw
+		return CCW
 	}
 
 	t.previousEncoderState = encoderState
 
-	return none
+	return None
 }
 
 func (t *RotaryEncoder) readCurrentEncoderValue() uint8 {

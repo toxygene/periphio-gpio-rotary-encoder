@@ -47,7 +47,7 @@ func (t *RotaryEncoder) Run(ctx context.Context, actions chan<- Action) error {
 	g.Go(func() error {
 		logger := t.logger.WithField("pin_a", t.encoderAPin)
 
-		t.logger.Info("setting up pin a")
+		t.logger.Trace("setting up pin a")
 
 		if err := t.encoderAPin.In(gpio.PullNoChange, gpio.BothEdges); err != nil {
 			t.logger.WithError(err).Error("setup of pin a failed")
@@ -57,20 +57,20 @@ func (t *RotaryEncoder) Run(ctx context.Context, actions chan<- Action) error {
 		for {
 			select {
 			case <-ctx.Done():
-				logger.Info("aborting wait for edge on pin")
+				logger.Trace("aborting wait for edge on pin")
 				return nil
 			default:
-				logger.Info("waiting for edge on pin a")
+				logger.Trace("waiting for edge on pin a")
 				if t.encoderAPin.WaitForEdge(t.timeout) == false {
 					continue
 				}
 
-				logger.Info("edge encountered on pin a, updating rotary encoder state")
+				logger.Trace("edge encountered on pin a, updating rotary encoder state")
 				mu.Lock()
 				a := t.handleEdge()
 				mu.Unlock()
 
-				logger.WithField("action", a).Info("action calculated for pin a edge")
+				logger.WithField("action", a).Trace("action calculated for pin a edge")
 				if a == CW || a == CCW {
 					actions <- a
 				}
@@ -81,7 +81,7 @@ func (t *RotaryEncoder) Run(ctx context.Context, actions chan<- Action) error {
 	g.Go(func() error {
 		logger := t.logger.WithField("pin_b", t.encoderBPin)
 
-		logger.Info("setting up pin b")
+		logger.Trace("setting up pin b")
 
 		if err := t.encoderBPin.In(gpio.PullNoChange, gpio.BothEdges); err != nil {
 			t.logger.WithError(err).Error("setup of pin b failed")
@@ -91,20 +91,20 @@ func (t *RotaryEncoder) Run(ctx context.Context, actions chan<- Action) error {
 		for {
 			select {
 			case <-ctx.Done():
-				logger.Info("aborting wait for edge on pin")
+				logger.Trace("aborting wait for edge on pin")
 				return nil
 			default:
-				logger.Info("waiting for edge on pin b")
+				logger.Trace("waiting for edge on pin b")
 				if t.encoderBPin.WaitForEdge(t.timeout) == false {
 					continue
 				}
 
-				logger.Info("edge encountered on pin b, updating rotary encoder state")
+				logger.Trace("edge encountered on pin b, updating rotary encoder state")
 				mu.Lock()
 				a := t.handleEdge()
 				mu.Unlock()
 
-				logger.WithField("action", a).Info("action calculated for pin b edge")
+				logger.WithField("action", a).Trace("action calculated for pin b edge")
 				if a == CW || a == CCW {
 					actions <- a
 				}
@@ -115,7 +115,7 @@ func (t *RotaryEncoder) Run(ctx context.Context, actions chan<- Action) error {
 	g.Go(func() error {
 		logger := t.logger.WithField("button", t.buttonPin)
 
-		logger.Info("setting up button")
+		logger.Trace("setting up button")
 
 		if err := t.buttonPin.In(gpio.PullNoChange, gpio.BothEdges); err != nil {
 			t.logger.WithError(err).Error("setup of button failed")
@@ -125,18 +125,18 @@ func (t *RotaryEncoder) Run(ctx context.Context, actions chan<- Action) error {
 		for {
 			select {
 			case <-ctx.Done():
-				logger.Info("aborting wait for edge on pin")
+				logger.Trace("aborting wait for edge on pin")
 				return nil
 			default:
-				logger.Info("waiting for edge on button")
+				logger.Trace("waiting for edge on button")
 				if t.buttonPin.WaitForEdge(t.timeout) == false {
 					continue
 				}
 
-				logger.Info("reading button state")
+				logger.Trace("reading button state")
 
 				if t.buttonPin.Read() == gpio.High {
-					logger.Info("read button state high")
+					logger.Trace("read button state high")
 
 					actions <- Release
 				} else {
@@ -148,13 +148,13 @@ func (t *RotaryEncoder) Run(ctx context.Context, actions chan<- Action) error {
 		}
 	})
 
-	t.logger.Info("starting rotary encoder run group")
+	t.logger.Trace("starting rotary encoder run group")
 
 	if err := g.Wait(); err != nil {
 		return fmt.Errorf("error: %w", err)
 	}
 
-	t.logger.Info("rotary encoder run group finished")
+	t.logger.Trace("rotary encoder run group finished")
 
 	return nil
 }

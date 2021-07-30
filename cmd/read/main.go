@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/toxygene/periphio-gpio-rotary-encoder/device"
@@ -30,7 +31,7 @@ func main() {
 	aPin := gpioreg.ByName(*pinAName)
 	bPin := gpioreg.ByName(*pinBName)
 
-	re := device.NewRotaryEncoder(aPin, bPin)
+	re := device.NewRotaryEncoderWithCustomTimeout(aPin, bPin, 3*time.Second)
 
 	fmt.Println("reading...")
 

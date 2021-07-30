@@ -98,10 +98,10 @@ func (t *RotaryEncoder) readEncoderAction() Action {
 
 	encoderState := (t.previousEncoderState << 2) | currentEncoderState
 
-	if encoderState == 4 || encoderState == 2 || encoderState == 12 || encoderState == 13 {
+	if encoderState == 0x4b || encoderState == 0x2d || encoderState == 0xb4 || encoderState == 0xd2 {
 		t.previousEncoderState = 0
 		return CW
-	} else if encoderState == 8 || encoderState == 1 || encoderState == 7 || encoderState == 14 {
+	} else if encoderState == 0x87 || encoderState == 0x1e || encoderState == 0x78 || encoderState == 0xe1 {
 		t.previousEncoderState = 0
 		return CCW
 	}

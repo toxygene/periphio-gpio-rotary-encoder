@@ -11,7 +11,7 @@ import (
 type Action string
 
 const (
-	None Action = "None"
+	None Action = "none"
 	CW   Action = "clockwise"
 	CCW  Action = "counterClockwise"
 )

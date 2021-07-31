@@ -17,18 +17,23 @@ func TestRotaryEncoder(t *testing.T) {
 		rotaryEncoder := device.NewRotaryEncoderWithCustomTimeout(
 			aPin,
 			bPin,
-			10*time.Second,
+			time.Millisecond,
 		)
 
 		go func() {
 			aPin.EdgesChan <- gpio.Low
+			time.Sleep(time.Millisecond)
 			bPin.EdgesChan <- gpio.Low
+			time.Sleep(time.Millisecond)
 			aPin.EdgesChan <- gpio.High
+			time.Sleep(time.Millisecond)
 			bPin.EdgesChan <- gpio.High
+			time.Sleep(time.Millisecond)
+			aPin.EdgesChan <- gpio.Low
+			time.Sleep(time.Millisecond)
+			bPin.EdgesChan <- gpio.Low
 		}()
 
-		a := rotaryEncoder.Read()
-
-		assert.Equal(t, device.CW, a)
+		assert.Equal(t, device.CW, rotaryEncoder.Read())
 	})
 }

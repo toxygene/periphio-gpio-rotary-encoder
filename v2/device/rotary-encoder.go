@@ -13,17 +13,16 @@ import (
 type Action string
 
 const (
-	none Action = "none"
-	CW   Action = "clockwise"
-	CCW  Action = "counterClockwise"
+	CW  Action = "clockwise"
+	CCW Action = "counterClockwise"
 )
 
 type RotaryEncoder struct {
-	aPin                 gpio.PinIO
-	bPin                 gpio.PinIO
-	logger               *logrus.Entry
-	previousEncoderState uint8
-	timeout              time.Duration
+	aPin         gpio.PinIO
+	bPin         gpio.PinIO
+	encoderState uint8
+	logger       *logrus.Entry
+	timeout      time.Duration
 }
 
 func NewRotaryEncoder(aPin gpio.PinIO, bPin gpio.PinIO, timeout time.Duration, logger *logrus.Entry) *RotaryEncoder {
@@ -41,71 +40,11 @@ func (t *RotaryEncoder) Run(ctx context.Context, actions chan<- Action) error {
 	g := new(errgroup.Group)
 
 	g.Go(func() error {
-		logger := t.logger.WithField("pin_a", t.aPin)
-
-		t.logger.Trace("setting up pin a")
-
-		if err := t.aPin.In(gpio.PullNoChange, gpio.BothEdges); err != nil {
-			t.logger.WithError(err).Error("setup of pin a failed")
-			return fmt.Errorf("setup of pin a failed: %w", err)
-		}
-
-		for {
-			select {
-			case <-ctx.Done():
-				logger.Trace("aborting wait for edge on pin")
-				return nil
-			default:
-				logger.Trace("waiting for edge on pin a")
-				if t.aPin.WaitForEdge(t.timeout) == false {
-					continue
-				}
-
-				logger.Trace("edge encountered on pin a, updating rotary encoder state")
-				mu.Lock()
-				a := t.handleEdge()
-				mu.Unlock()
-
-				logger.WithField("action", a).Trace("action calculated for pin a edge")
-				if a == CW || a == CCW {
-					actions <- a
-				}
-			}
-		}
+		return t.waitForEdgeOnPin(ctx, &mu, actions, t.aPin)
 	})
 
 	g.Go(func() error {
-		logger := t.logger.WithField("pin_b", t.bPin)
-
-		logger.Trace("setting up pin b")
-
-		if err := t.bPin.In(gpio.PullNoChange, gpio.BothEdges); err != nil {
-			t.logger.WithError(err).Error("setup of pin b failed")
-			return fmt.Errorf("setup of pin b failed: %w", err)
-		}
-
-		for {
-			select {
-			case <-ctx.Done():
-				logger.Trace("aborting wait for edge on pin")
-				return nil
-			default:
-				logger.Trace("waiting for edge on pin b")
-				if t.bPin.WaitForEdge(t.timeout) == false {
-					continue
-				}
-
-				logger.Trace("edge encountered on pin b, updating rotary encoder state")
-				mu.Lock()
-				a := t.handleEdge()
-				mu.Unlock()
-
-				logger.WithField("action", a).Trace("action calculated for pin b edge")
-				if a == CW || a == CCW {
-					actions <- a
-				}
-			}
-		}
+		return t.waitForEdgeOnPin(ctx, &mu, actions, t.bPin)
 	})
 
 	t.logger.Trace("starting rotary encoder run group")
@@ -119,36 +58,74 @@ func (t *RotaryEncoder) Run(ctx context.Context, actions chan<- Action) error {
 	return nil
 }
 
-func (t *RotaryEncoder) handleEdge() Action {
-	encoderValue := t.readCurrentEncoderValue()
+func (t *RotaryEncoder) waitForEdgeOnPin(ctx context.Context, mu *sync.Mutex, c chan<- Action, pin gpio.PinIO) error {
+	logger := t.logger.WithField("pin", pin)
 
-	if encoderValue == (t.previousEncoderState & 3) {
-		return none
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			logger.WithField("timeout", t.timeout).Trace("waiting for edge")
+
+			if pin.WaitForEdge(t.timeout) == false {
+				logger.Trace("no edge detected within timeout")
+
+				continue
+			}
+
+			logger.Trace("edge detected, checking encoder state")
+
+			mu.Lock()
+
+			select {
+			case <-ctx.Done():
+				mu.Unlock()
+				return ctx.Err()
+			default:
+				encoderState := t.getEncoderState()
+
+				encoderStateLogger := logger.WithField("encoder_state", fmt.Sprintf("%#08b", encoderState))
+
+				if encoderState == 0x4b || encoderState == 0x2d || encoderState == 0xb4 || encoderState == 0xd2 {
+					encoderStateLogger.Trace("clockwise rotation detected")
+
+					t.encoderState = 0
+					c <- CW
+				} else if encoderState == 0x87 || encoderState == 0x1e || encoderState == 0x78 || encoderState == 0xe1 {
+					encoderStateLogger.Trace("counter clockwise rotation detected")
+
+					t.encoderState = 0
+					c <- CCW
+				}
+
+				encoderStateLogger.Trace("no rotation detected")
+
+				mu.Unlock()
+			}
+		}
 	}
-
-	encoderState := (t.previousEncoderState << 2) | encoderValue
-
-	if encoderState == 0x1e || encoderState == 0xe1 || encoderState == 0x78 || encoderState == 0x87 {
-		t.previousEncoderState = 0
-		return CW
-	} else if encoderState == 0xb4 || encoderState == 0x4b || encoderState == 0x2d || encoderState == 0xd2 {
-		t.previousEncoderState = 0
-		return CCW
-	}
-
-	t.previousEncoderState = encoderState
-
-	return none
 }
 
-func (t *RotaryEncoder) readCurrentEncoderValue() uint8 {
+func (t *RotaryEncoder) getEncoderState() uint8 {
+	encoderState := t.readEncoderState()
+
+	if encoderState == (t.encoderState & 3) {
+		return t.encoderState
+	}
+
+	t.encoderState = (t.encoderState << 2) | encoderState
+	return t.encoderState
+}
+
+func (t *RotaryEncoder) readEncoderState() uint8 {
 	x := uint8(0)
 
-	if t.bPin.Read() == gpio.High {
+	if t.aPin.Read() == gpio.High {
 		x |= 2
 	}
 
-	if t.aPin.Read() == gpio.High {
+	if t.bPin.Read() == gpio.High {
 		x |= 1
 	}
 

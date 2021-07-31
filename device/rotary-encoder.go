@@ -11,16 +11,15 @@ import (
 type Action string
 
 const (
-	None Action = "none"
-	CW   Action = "clockwise"
-	CCW  Action = "counterClockwise"
+	CW  Action = "clockwise"
+	CCW Action = "counterClockwise"
 )
 
 type RotaryEncoder struct {
-	aPin                 gpio.PinIO
-	bPin                 gpio.PinIO
-	previousEncoderState uint8
-	timeout              time.Duration
+	aPin         gpio.PinIO
+	bPin         gpio.PinIO
+	encoderState uint8
+	timeout      time.Duration
 }
 
 func NewRotaryEncoder(aPin gpio.PinIO, bPin gpio.PinIO) *RotaryEncoder {
@@ -73,42 +72,37 @@ func (t *RotaryEncoder) waitForEdgeOnPin(ctx context.Context, cancel context.Can
 				mu.Unlock()
 				return
 			default:
-				a := t.readEncoderAction()
+				encoderState := t.getEncoderState()
 
-				if a == None {
+				if encoderState == 0x4b || encoderState == 0x2d || encoderState == 0xb4 || encoderState == 0xd2 {
+					t.encoderState = 0
+					cancel()
+					c <- CW
 					mu.Unlock()
-					continue
+					return
+				} else if encoderState == 0x87 || encoderState == 0x1e || encoderState == 0x78 || encoderState == 0xe1 {
+					t.encoderState = 0
+					cancel()
+					c <- CCW
+					mu.Unlock()
+					return
 				}
 
-				cancel()
-				c <- a
 				mu.Unlock()
-				return
 			}
 		}
 	}
 }
 
-func (t *RotaryEncoder) readEncoderAction() Action {
-	currentEncoderState := t.readEncoderState()
+func (t *RotaryEncoder) getEncoderState() uint8 {
+	encoderState := t.readEncoderState()
 
-	if currentEncoderState == (t.previousEncoderState & 3) {
-		return None
+	if encoderState == (t.encoderState & 3) {
+		return t.encoderState
 	}
 
-	encoderState := (t.previousEncoderState << 2) | currentEncoderState
-
-	if encoderState == 0x4b || encoderState == 0x2d || encoderState == 0xb4 || encoderState == 0xd2 {
-		t.previousEncoderState = 0
-		return CW
-	} else if encoderState == 0x87 || encoderState == 0x1e || encoderState == 0x78 || encoderState == 0xe1 {
-		t.previousEncoderState = 0
-		return CCW
-	}
-
-	t.previousEncoderState = encoderState
-
-	return None
+	t.encoderState = (t.encoderState << 2) | encoderState
+	return t.encoderState
 }
 
 func (t *RotaryEncoder) readEncoderState() uint8 {

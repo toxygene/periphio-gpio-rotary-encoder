@@ -13,29 +13,25 @@ import (
 type Action string
 
 const (
-	None    Action = "none"
-	CW      Action = "clockwise"
-	CCW     Action = "counterClockwise"
-	Press   Action = "press"
-	Release Action = "release"
+	none Action = "none"
+	CW   Action = "clockwise"
+	CCW  Action = "counterClockwise"
 )
 
 type RotaryEncoder struct {
-	buttonPin            gpio.PinIO
-	encoderAPin          gpio.PinIO
-	encoderBPin          gpio.PinIO
+	aPin                 gpio.PinIO
+	bPin                 gpio.PinIO
 	logger               *logrus.Entry
 	previousEncoderState uint8
 	timeout              time.Duration
 }
 
-func NewRotaryEncoder(encoderAPin gpio.PinIO, encoderBPin gpio.PinIO, buttonPin gpio.PinIO, timeout time.Duration, logger *logrus.Entry) *RotaryEncoder {
+func NewRotaryEncoder(aPin gpio.PinIO, bPin gpio.PinIO, timeout time.Duration, logger *logrus.Entry) *RotaryEncoder {
 	return &RotaryEncoder{
-		buttonPin:   buttonPin,
-		encoderAPin: encoderAPin,
-		encoderBPin: encoderBPin,
-		logger:      logger,
-		timeout:     timeout,
+		aPin:    aPin,
+		bPin:    bPin,
+		logger:  logger,
+		timeout: timeout,
 	}
 }
 
@@ -45,11 +41,11 @@ func (t *RotaryEncoder) Run(ctx context.Context, actions chan<- Action) error {
 	g := new(errgroup.Group)
 
 	g.Go(func() error {
-		logger := t.logger.WithField("pin_a", t.encoderAPin)
+		logger := t.logger.WithField("pin_a", t.aPin)
 
 		t.logger.Trace("setting up pin a")
 
-		if err := t.encoderAPin.In(gpio.PullNoChange, gpio.BothEdges); err != nil {
+		if err := t.aPin.In(gpio.PullNoChange, gpio.BothEdges); err != nil {
 			t.logger.WithError(err).Error("setup of pin a failed")
 			return fmt.Errorf("setup of pin a failed: %w", err)
 		}
@@ -61,7 +57,7 @@ func (t *RotaryEncoder) Run(ctx context.Context, actions chan<- Action) error {
 				return nil
 			default:
 				logger.Trace("waiting for edge on pin a")
-				if t.encoderAPin.WaitForEdge(t.timeout) == false {
+				if t.aPin.WaitForEdge(t.timeout) == false {
 					continue
 				}
 
@@ -79,11 +75,11 @@ func (t *RotaryEncoder) Run(ctx context.Context, actions chan<- Action) error {
 	})
 
 	g.Go(func() error {
-		logger := t.logger.WithField("pin_b", t.encoderBPin)
+		logger := t.logger.WithField("pin_b", t.bPin)
 
 		logger.Trace("setting up pin b")
 
-		if err := t.encoderBPin.In(gpio.PullNoChange, gpio.BothEdges); err != nil {
+		if err := t.bPin.In(gpio.PullNoChange, gpio.BothEdges); err != nil {
 			t.logger.WithError(err).Error("setup of pin b failed")
 			return fmt.Errorf("setup of pin b failed: %w", err)
 		}
@@ -95,7 +91,7 @@ func (t *RotaryEncoder) Run(ctx context.Context, actions chan<- Action) error {
 				return nil
 			default:
 				logger.Trace("waiting for edge on pin b")
-				if t.encoderBPin.WaitForEdge(t.timeout) == false {
+				if t.bPin.WaitForEdge(t.timeout) == false {
 					continue
 				}
 
@@ -107,42 +103,6 @@ func (t *RotaryEncoder) Run(ctx context.Context, actions chan<- Action) error {
 				logger.WithField("action", a).Trace("action calculated for pin b edge")
 				if a == CW || a == CCW {
 					actions <- a
-				}
-			}
-		}
-	})
-
-	g.Go(func() error {
-		logger := t.logger.WithField("button", t.buttonPin)
-
-		logger.Trace("setting up button")
-
-		if err := t.buttonPin.In(gpio.PullNoChange, gpio.BothEdges); err != nil {
-			t.logger.WithError(err).Error("setup of button failed")
-			return fmt.Errorf("setup of button failed: %w", err)
-		}
-
-		for {
-			select {
-			case <-ctx.Done():
-				logger.Trace("aborting wait for edge on pin")
-				return nil
-			default:
-				logger.Trace("waiting for edge on button")
-				if t.buttonPin.WaitForEdge(t.timeout) == false {
-					continue
-				}
-
-				logger.Trace("reading button state")
-
-				if t.buttonPin.Read() == gpio.High {
-					logger.Trace("read button state high")
-
-					actions <- Release
-				} else {
-					logger.Info("read button state low")
-
-					actions <- Press
 				}
 			}
 		}
@@ -163,7 +123,7 @@ func (t *RotaryEncoder) handleEdge() Action {
 	encoderValue := t.readCurrentEncoderValue()
 
 	if encoderValue == (t.previousEncoderState & 3) {
-		return None
+		return none
 	}
 
 	encoderState := (t.previousEncoderState << 2) | encoderValue
@@ -178,17 +138,17 @@ func (t *RotaryEncoder) handleEdge() Action {
 
 	t.previousEncoderState = encoderState
 
-	return None
+	return none
 }
 
 func (t *RotaryEncoder) readCurrentEncoderValue() uint8 {
 	x := uint8(0)
 
-	if t.encoderBPin.Read() == gpio.High {
+	if t.bPin.Read() == gpio.High {
 		x |= 2
 	}
 
-	if t.encoderAPin.Read() == gpio.High {
+	if t.aPin.Read() == gpio.High {
 		x |= 1
 	}
 

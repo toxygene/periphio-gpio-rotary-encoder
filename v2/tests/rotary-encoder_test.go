@@ -5,6 +5,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/toxygene/periphio-gpio-rotary-encoder/v2/device"
+	"io/ioutil"
 	"periph.io/x/periph/conn/gpio"
 	"periph.io/x/periph/conn/gpio/gpiotest"
 	"testing"
@@ -13,6 +14,9 @@ import (
 
 func TestRotaryEncoder(t *testing.T) {
 	t.Run("success clockwise 1", func(t *testing.T) {
+		logger := logrus.New()
+		logger.SetOutput(ioutil.Discard)
+
 		aPin := &gpiotest.Pin{N: "A", EdgesChan: make(chan gpio.Level)}
 		bPin := &gpiotest.Pin{N: "B", EdgesChan: make(chan gpio.Level)}
 
@@ -20,7 +24,7 @@ func TestRotaryEncoder(t *testing.T) {
 			aPin,
 			bPin,
 			time.Millisecond,
-			logrus.NewEntry(logrus.New()),
+			logrus.NewEntry(logger),
 		)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -46,6 +50,9 @@ func TestRotaryEncoder(t *testing.T) {
 	})
 
 	t.Run("success clockwise 2", func(t *testing.T) {
+		logger := logrus.New()
+		logger.SetOutput(ioutil.Discard)
+
 		aPin := &gpiotest.Pin{N: "A", EdgesChan: make(chan gpio.Level)}
 		bPin := &gpiotest.Pin{N: "B", EdgesChan: make(chan gpio.Level)}
 
@@ -53,7 +60,7 @@ func TestRotaryEncoder(t *testing.T) {
 			aPin,
 			bPin,
 			time.Millisecond,
-			logrus.NewEntry(logrus.New()),
+			logrus.NewEntry(logger),
 		)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -79,6 +86,9 @@ func TestRotaryEncoder(t *testing.T) {
 	})
 
 	t.Run("success clockwise 3", func(t *testing.T) {
+		logger := logrus.New()
+		logger.SetOutput(ioutil.Discard)
+
 		aPin := &gpiotest.Pin{N: "A", EdgesChan: make(chan gpio.Level)}
 		bPin := &gpiotest.Pin{N: "B", EdgesChan: make(chan gpio.Level)}
 
@@ -86,7 +96,7 @@ func TestRotaryEncoder(t *testing.T) {
 			aPin,
 			bPin,
 			time.Millisecond,
-			logrus.NewEntry(logrus.New()),
+			logrus.NewEntry(logger),
 		)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -112,6 +122,9 @@ func TestRotaryEncoder(t *testing.T) {
 	})
 
 	t.Run("success clockwise 4", func(t *testing.T) {
+		logger := logrus.New()
+		logger.SetOutput(ioutil.Discard)
+
 		aPin := &gpiotest.Pin{N: "A", EdgesChan: make(chan gpio.Level)}
 		bPin := &gpiotest.Pin{N: "B", EdgesChan: make(chan gpio.Level)}
 
@@ -119,7 +132,7 @@ func TestRotaryEncoder(t *testing.T) {
 			aPin,
 			bPin,
 			time.Millisecond,
-			logrus.NewEntry(logrus.New()),
+			logrus.NewEntry(logger),
 		)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -145,14 +158,17 @@ func TestRotaryEncoder(t *testing.T) {
 	})
 
 	t.Run("success counter clockwise 1", func(t *testing.T) {
-		aPin := &gpiotest.Pin{EdgesChan: make(chan gpio.Level)}
-		bPin := &gpiotest.Pin{EdgesChan: make(chan gpio.Level)}
+		logger := logrus.New()
+		logger.SetOutput(ioutil.Discard)
+
+		aPin := &gpiotest.Pin{N: "A", EdgesChan: make(chan gpio.Level)}
+		bPin := &gpiotest.Pin{N: "B", EdgesChan: make(chan gpio.Level)}
 
 		rotaryEncoder := device.NewRotaryEncoder(
 			aPin,
 			bPin,
 			time.Millisecond,
-			logrus.NewEntry(logrus.New()),
+			logrus.NewEntry(logger),
 		)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -178,14 +194,17 @@ func TestRotaryEncoder(t *testing.T) {
 	})
 
 	t.Run("success counter clockwise 2", func(t *testing.T) {
-		aPin := &gpiotest.Pin{EdgesChan: make(chan gpio.Level)}
-		bPin := &gpiotest.Pin{EdgesChan: make(chan gpio.Level)}
+		logger := logrus.New()
+		logger.SetOutput(ioutil.Discard)
+
+		aPin := &gpiotest.Pin{N: "A", EdgesChan: make(chan gpio.Level)}
+		bPin := &gpiotest.Pin{N: "B", EdgesChan: make(chan gpio.Level)}
 
 		rotaryEncoder := device.NewRotaryEncoder(
 			aPin,
 			bPin,
 			time.Millisecond,
-			logrus.NewEntry(logrus.New()),
+			logrus.NewEntry(logger),
 		)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -211,14 +230,17 @@ func TestRotaryEncoder(t *testing.T) {
 	})
 
 	t.Run("success counter clockwise 3", func(t *testing.T) {
-		aPin := &gpiotest.Pin{EdgesChan: make(chan gpio.Level)}
-		bPin := &gpiotest.Pin{EdgesChan: make(chan gpio.Level)}
+		logger := logrus.New()
+		logger.SetOutput(ioutil.Discard)
+
+		aPin := &gpiotest.Pin{N: "A", EdgesChan: make(chan gpio.Level)}
+		bPin := &gpiotest.Pin{N: "B", EdgesChan: make(chan gpio.Level)}
 
 		rotaryEncoder := device.NewRotaryEncoder(
 			aPin,
 			bPin,
 			time.Millisecond,
-			logrus.NewEntry(logrus.New()),
+			logrus.NewEntry(logger),
 		)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -244,14 +266,17 @@ func TestRotaryEncoder(t *testing.T) {
 	})
 
 	t.Run("success counter clockwise 4", func(t *testing.T) {
-		aPin := &gpiotest.Pin{EdgesChan: make(chan gpio.Level)}
-		bPin := &gpiotest.Pin{EdgesChan: make(chan gpio.Level)}
+		logger := logrus.New()
+		logger.SetOutput(ioutil.Discard)
+
+		aPin := &gpiotest.Pin{N: "A", EdgesChan: make(chan gpio.Level)}
+		bPin := &gpiotest.Pin{N: "B", EdgesChan: make(chan gpio.Level)}
 
 		rotaryEncoder := device.NewRotaryEncoder(
 			aPin,
 			bPin,
 			time.Millisecond,
-			logrus.NewEntry(logrus.New()),
+			logrus.NewEntry(logger),
 		)
 
 		ctx, cancel := context.WithCancel(context.Background())

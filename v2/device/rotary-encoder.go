@@ -142,28 +142,12 @@ func (t *RotaryEncoder) waitForEdgeOnPin(ctx context.Context, mu *sync.Mutex, c 
 
 				stateLogger.Trace("current state")
 
-				// Ignore duplicate states
-				if state == t.state[3] {
-					stateLogger.Trace("duplicate state detected")
-
-					mu.Unlock()
-					continue
-				}
-
 				// Push the current state
 				t.state = [4]State{
 					t.state[1],
 					t.state[2],
 					t.state[3],
 					state,
-				}
-
-				// Don't check the state until we've seen 4 states
-				if t.state[0].Pin == nil {
-					stateLogger.Trace("incomplete state detected")
-
-					mu.Unlock()
-					continue
 				}
 
 				logger.WithField("states", t.state).Trace("checking encoder states")
@@ -178,9 +162,9 @@ func (t *RotaryEncoder) waitForEdgeOnPin(ctx context.Context, mu *sync.Mutex, c 
 					t.state = [4]State{}
 					c <- CCW
 				}
-
-				mu.Unlock()
 			}
+
+			mu.Unlock()
 		}
 	}
 }

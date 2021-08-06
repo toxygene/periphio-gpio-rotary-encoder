@@ -10,6 +10,11 @@ import (
 	"time"
 )
 
+type State struct {
+	Pin   gpio.PinIO
+	Level gpio.Level
+}
+
 type Action string
 
 const (
@@ -18,11 +23,14 @@ const (
 )
 
 type RotaryEncoder struct {
-	aPin         gpio.PinIO
-	bPin         gpio.PinIO
-	encoderState uint8
-	logger       *logrus.Entry
-	timeout      time.Duration
+	aPin    gpio.PinIO
+	bPin    gpio.PinIO
+	state   [4]State
+	logger  *logrus.Entry
+	timeout time.Duration
+
+	cw  [4]State
+	ccw [4]State
 }
 
 func NewRotaryEncoder(aPin gpio.PinIO, bPin gpio.PinIO, timeout time.Duration, logger *logrus.Entry) *RotaryEncoder {
@@ -35,6 +43,44 @@ func NewRotaryEncoder(aPin gpio.PinIO, bPin gpio.PinIO, timeout time.Duration, l
 }
 
 func (t *RotaryEncoder) Run(ctx context.Context, actions chan<- Action) error {
+	t.cw = [4]State{
+		{
+			Pin:   t.aPin,
+			Level: gpio.High,
+		},
+		{
+			Pin:   t.bPin,
+			Level: gpio.High,
+		},
+		{
+			Pin:   t.aPin,
+			Level: gpio.Low,
+		},
+		{
+			Pin:   t.bPin,
+			Level: gpio.Low,
+		},
+	}
+
+	t.ccw = [4]State{
+		{
+			Pin:   t.bPin,
+			Level: gpio.High,
+		},
+		{
+			Pin:   t.aPin,
+			Level: gpio.High,
+		},
+		{
+			Pin:   t.bPin,
+			Level: gpio.Low,
+		},
+		{
+			Pin:   t.aPin,
+			Level: gpio.Low,
+		},
+	}
+
 	mu := sync.Mutex{}
 
 	g := new(errgroup.Group)
@@ -74,7 +120,7 @@ func (t *RotaryEncoder) waitForEdgeOnPin(ctx context.Context, mu *sync.Mutex, c 
 				continue
 			}
 
-			logger.Trace("edge detected, checking encoder state")
+			logger.Trace("edge detected, checking encoder states")
 
 			mu.Lock()
 
@@ -83,51 +129,40 @@ func (t *RotaryEncoder) waitForEdgeOnPin(ctx context.Context, mu *sync.Mutex, c 
 				mu.Unlock()
 				return ctx.Err()
 			default:
-				encoderState := t.getEncoderState()
+				state := State{Level: pin.Read(), Pin: pin}
 
-				encoderStateLogger := logger.WithField("encoder_state", fmt.Sprintf("%#08b", encoderState))
-
-				if encoderState == 0x4b || encoderState == 0x2d || encoderState == 0xb4 || encoderState == 0xd2 {
-					encoderStateLogger.Trace("clockwise rotation detected")
-
-					t.encoderState = 0
-					c <- CW
-				} else if encoderState == 0x87 || encoderState == 0x1e || encoderState == 0x78 || encoderState == 0xe1 {
-					encoderStateLogger.Trace("counter clockwise rotation detected")
-
-					t.encoderState = 0
-					c <- CCW
+				// Ignore duplicate states
+				if state == t.state[3] {
+					mu.Unlock()
+					continue
 				}
 
-				encoderStateLogger.Trace("no rotation detected")
+				// Push the current state
+				t.state = [4]State{
+					t.state[1],
+					t.state[2],
+					t.state[3],
+					state,
+				}
+
+				// Don't check the state until we've seen 8 encoder states
+				if t.state[0].Pin == nil {
+					mu.Unlock()
+					continue
+				}
+
+				logger.WithField("states", t.state).Debug("checking encoder states")
+
+				if (t.state[0] == t.cw[0] && t.state[1] == t.cw[1] && t.state[2] == t.cw[2] && t.state[3] == t.cw[3]) || (t.state[0] == t.cw[1] && t.state[1] == t.cw[2] && t.state[2] == t.cw[3] && t.state[3] == t.cw[0]) || (t.state[0] == t.cw[2] && t.state[1] == t.cw[3] && t.state[2] == t.cw[0] && t.state[3] == t.cw[1]) || (t.state[0] == t.cw[3] && t.state[1] == t.cw[0] && t.state[2] == t.cw[1] && t.state[3] == t.cw[2]) {
+					t.state = [4]State{}
+					c <- CW
+				} else if (t.state[0] == t.ccw[0] && t.state[1] == t.ccw[1] && t.state[2] == t.ccw[2] && t.state[3] == t.ccw[3]) || (t.state[0] == t.ccw[1] && t.state[1] == t.ccw[2] && t.state[2] == t.ccw[3] && t.state[3] == t.ccw[0]) || (t.state[0] == t.ccw[2] && t.state[1] == t.ccw[3] && t.state[2] == t.ccw[0] && t.state[3] == t.ccw[1]) || (t.state[0] == t.ccw[3] && t.state[1] == t.ccw[0] && t.state[2] == t.ccw[1] && t.state[3] == t.ccw[2]) {
+					t.state = [4]State{}
+					c <- CCW
+				}
 
 				mu.Unlock()
 			}
 		}
 	}
-}
-
-func (t *RotaryEncoder) getEncoderState() uint8 {
-	encoderState := t.readEncoderState()
-
-	if encoderState == (t.encoderState & 3) {
-		return t.encoderState
-	}
-
-	t.encoderState = (t.encoderState << 2) | encoderState
-	return t.encoderState
-}
-
-func (t *RotaryEncoder) readEncoderState() uint8 {
-	x := uint8(0)
-
-	if t.aPin.Read() == gpio.High {
-		x |= 2
-	}
-
-	if t.bPin.Read() == gpio.High {
-		x |= 1
-	}
-
-	return x
 }

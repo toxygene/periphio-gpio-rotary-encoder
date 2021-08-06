@@ -96,7 +96,11 @@ func (t *RotaryEncoder) Run(ctx context.Context, actions chan<- Action) error {
 	t.logger.Trace("starting rotary encoder run group")
 
 	if err := g.Wait(); err != nil {
-		return fmt.Errorf("error: %w", err)
+		t.logger.
+			WithError(err).
+			Error("rotary encoder failed")
+
+		return fmt.Errorf("rotary encoder: %w", err)
 	}
 
 	t.logger.Trace("rotary encoder run group finished")
@@ -110,6 +114,8 @@ func (t *RotaryEncoder) waitForEdgeOnPin(ctx context.Context, mu *sync.Mutex, c 
 	for {
 		select {
 		case <-ctx.Done():
+			logger.Trace("context cancelled, shutting down goroutine")
+
 			return ctx.Err()
 		default:
 			logger.WithField("timeout", t.timeout).Trace("waiting for edge")
@@ -126,13 +132,20 @@ func (t *RotaryEncoder) waitForEdgeOnPin(ctx context.Context, mu *sync.Mutex, c 
 
 			select {
 			case <-ctx.Done():
+				logger.Trace("context cancelled, shutting down goroutine")
 				mu.Unlock()
 				return ctx.Err()
 			default:
 				state := State{Level: pin.Read(), Pin: pin}
 
+				stateLogger := logger.WithField("state", state)
+
+				stateLogger.Trace("current state")
+
 				// Ignore duplicate states
 				if state == t.state[3] {
+					stateLogger.Trace("duplicate state detected")
+
 					mu.Unlock()
 					continue
 				}
@@ -145,18 +158,23 @@ func (t *RotaryEncoder) waitForEdgeOnPin(ctx context.Context, mu *sync.Mutex, c 
 					state,
 				}
 
-				// Don't check the state until we've seen 8 encoder states
+				// Don't check the state until we've seen 4 states
 				if t.state[0].Pin == nil {
+					stateLogger.Trace("incomplete state detected")
+
 					mu.Unlock()
 					continue
 				}
 
-				logger.WithField("states", t.state).Debug("checking encoder states")
+				logger.WithField("states", t.state).Trace("checking encoder states")
 
 				if (t.state[0] == t.cw[0] && t.state[1] == t.cw[1] && t.state[2] == t.cw[2] && t.state[3] == t.cw[3]) || (t.state[0] == t.cw[1] && t.state[1] == t.cw[2] && t.state[2] == t.cw[3] && t.state[3] == t.cw[0]) || (t.state[0] == t.cw[2] && t.state[1] == t.cw[3] && t.state[2] == t.cw[0] && t.state[3] == t.cw[1]) || (t.state[0] == t.cw[3] && t.state[1] == t.cw[0] && t.state[2] == t.cw[1] && t.state[3] == t.cw[2]) {
+					logger.Trace("clockwise rotation detected")
+
 					t.state = [4]State{}
 					c <- CW
 				} else if (t.state[0] == t.ccw[0] && t.state[1] == t.ccw[1] && t.state[2] == t.ccw[2] && t.state[3] == t.ccw[3]) || (t.state[0] == t.ccw[1] && t.state[1] == t.ccw[2] && t.state[2] == t.ccw[3] && t.state[3] == t.ccw[0]) || (t.state[0] == t.ccw[2] && t.state[1] == t.ccw[3] && t.state[2] == t.ccw[0] && t.state[3] == t.ccw[1]) || (t.state[0] == t.ccw[3] && t.state[1] == t.ccw[0] && t.state[2] == t.ccw[1] && t.state[3] == t.ccw[2]) {
+					logger.Trace("counter-clockwise rotation detected")
 					t.state = [4]State{}
 					c <- CCW
 				}

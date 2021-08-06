@@ -142,6 +142,12 @@ func (t *RotaryEncoder) waitForEdgeOnPin(ctx context.Context, mu *sync.Mutex, c 
 
 				stateLogger.Trace("current state")
 
+				// Ignore duplications
+				if state == t.state[3] {
+					mu.Unlock()
+					continue
+				}
+
 				// Push the current state
 				t.state = [4]State{
 					t.state[1],

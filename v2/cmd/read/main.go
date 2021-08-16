@@ -54,7 +54,7 @@ func main() {
 		panic("could not find pin a")
 	}
 
-	if err := aPin.In(gpio.PullNoChange, gpio.BothEdges); err != nil {
+	if err := aPin.In(gpio.PullUp, gpio.BothEdges); err != nil {
 		panic(err)
 	}
 
@@ -65,7 +65,7 @@ func main() {
 		panic("could not find pin b")
 	}
 
-	if err := bPin.In(gpio.PullNoChange, gpio.BothEdges); err != nil {
+	if err := bPin.In(gpio.PullUp, gpio.BothEdges); err != nil {
 		panic(err)
 	}
 
